@@ -38,7 +38,18 @@ fn connect_remove_from_results(app: &MainWindow) {
             return;
         }
 
-        let new_items: Vec<SingleMainListModel> = model.iter().enumerate().filter_map(|(i, r)| if i == idx { None } else { Some(r) }).collect();
+        // Remove all selected items, not just the right-clicked one
+        let new_items: Vec<SingleMainListModel> = model
+            .iter()
+            .enumerate()
+            .filter_map(|(i, r)| {
+                if r.focused_row && !r.header_row {
+                    None
+                } else {
+                    Some(r)
+                }
+            })
+            .collect();
         let cleaned = remove_single_items_in_groups(new_items, active_tab.get_is_header_mode());
         active_tab.set_tool_model(&app, ModelRc::new(VecModel::from(cleaned)));
         reset_selection(&app, active_tab, true);
@@ -282,23 +293,40 @@ fn connect_exclude_item(app: &MainWindow) {
         if row.header_row {
             return;
         }
-        let path = row
-            .val_str
-            .iter()
-            .nth(path_idx)
-            .unwrap_or_else(|| panic!("path_idx={path_idx} out of bounds, full val_str={:?}", row.val_str.iter().collect::<Vec<_>>()))
-            .to_string();
-        let name = row
-            .val_str
-            .iter()
-            .nth(name_idx)
-            .unwrap_or_else(|| panic!("name_idx={name_idx} out of bounds, full val_str={:?}", row.val_str.iter().collect::<Vec<_>>()))
-            .to_string();
-        let full_path = std::path::PathBuf::from(&path).join(&name).to_string_lossy().to_string();
-        add_excluded_paths(&app.global::<Settings>(), &[full_path]);
 
-        // Remove the specific item from results.
-        let new_items: Vec<SingleMainListModel> = model.iter().enumerate().filter_map(|(i, r)| if i == idx { None } else { Some(r) }).collect();
+        // Collect paths to exclude from all selected items
+        let mut paths_to_exclude: Vec<String> = Vec::new();
+        for (i, r) in model.iter().enumerate() {
+            if r.focused_row && !r.header_row {
+                let path = r
+                    .val_str
+                    .iter()
+                    .nth(path_idx)
+                    .unwrap_or_else(|| panic!("path_idx={path_idx} out of bounds, full val_str={:?}", r.val_str.iter().collect::<Vec<_>>()))
+                    .to_string();
+                let name = r
+                    .val_str
+                    .iter()
+                    .nth(name_idx)
+                    .unwrap_or_else(|| panic!("name_idx={name_idx} out of bounds, full val_str={:?}", r.val_str.iter().collect::<Vec<_>>()))
+                    .to_string();
+                let full_path = std::path::PathBuf::from(&path).join(&name).to_string_lossy().to_string();
+                paths_to_exclude.push(full_path);
+            }
+        }
+        add_excluded_paths(&app.global::<Settings>(), &paths_to_exclude);
+
+        // Remove all selected items from results
+        let new_items: Vec<SingleMainListModel> = model
+            .iter()
+            .filter_map(|(i, r)| {
+                if r.focused_row && !r.header_row {
+                    None
+                } else {
+                    Some(r)
+                }
+            })
+            .collect();
         let cleaned = remove_single_items_in_groups(new_items, active_tab.get_is_header_mode());
         active_tab.set_tool_model(&app, ModelRc::new(VecModel::from(cleaned)));
         reset_selection(&app, active_tab, true);
