@@ -124,7 +124,12 @@ export component SelectableTableView inherits Rectangle {
                     pointer-event(event) => {
                         if (event.button == PointerEventButton.right && event.kind == PointerEventKind.up) {
                             if (contains_data(idx)) {
-                                Callabler.row_reverse_single_unique_item(idx);
+                                // Preserve multi-item selection on right-click:
+                                // - If right-clicked item is already selected, keep the selection
+                                // - If right-clicked item is NOT selected, discard selection and select only it
+                                if (!root.values[idx].focused_row) {
+                                    Callabler.row_reverse_single_unique_item(idx);
+                                }
                                 context_menu_row_idx = idx;
                                 context_menu.x = touch_area.mouse-x;
                                 context_menu.y = list_view.y + idx * item_height + list_view.viewport-y;
